@@ -124,7 +124,7 @@ def create_archive(tiles, root, max_zoom, meta, ext):
         archive.comment = json.dumps(meta).encode("utf-8")
 
         for tile, (_, data) in tiles:
-            logger.info("%d/%d/%d", tile.z, tile.x, tile.y)
+            logger.debug("Writing tile %d/%d/%d", tile.z, tile.x, tile.y)
 
             info = ZipInfo(
                 "{}/{}/{}@2x.{}".format(tile.z, tile.x, tile.y, ext), date_time

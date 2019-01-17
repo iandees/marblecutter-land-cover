@@ -164,6 +164,30 @@ def write(body, target):
             logger.exception(e)
 
 
+def exists(target):
+    url = urlparse(target)
+
+    if url.scheme in ("", "file"):
+        target = path.abspath(url.netloc + url.path)
+
+        return path.exists(target)
+    elif url.scheme == "s3":
+        bucket = url.netloc
+        key = url.path[1:]
+
+        try:
+            S3.head_object(
+                Bucket=bucket, Key=key
+            )
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "404":
+                return False
+            else:
+                logger.exception(e)
+
+        return True
+
+
 def power_of_2(value):
     value = int(value)
 
@@ -219,6 +243,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--skip-meta", "-s", action="store_true", help="Skip writing meta.json"
+    )
+    parser.add_argument(
+        "--dont-overwrite", action="store_true", help="Skip writing over the top of existing materialized archives"
     )
     parser.add_argument(
         "--sieve", type=int, default=4, help="Sieve size (for GeoJSON output)"
@@ -339,6 +366,19 @@ if __name__ == "__main__":
         for materialized_tile in subpyramids(
             root, args.max_zoom, metatile, materialize_zooms
         ):
+            key = "{}/{}/{}".format(
+                materialized_tile.z, materialized_tile.x, materialized_tile.y
+            )
+            if args.hash:
+                h = hashlib.md5(key.encode("utf-8")).hexdigest()[:5]
+                key = "{}/{}".format(h, key)
+
+            archive_path = path.join(args.target, "{}.zip".format(key))
+
+            if args.dont_overwrite and exists(archive_path):
+                logger.info("Skipping %s because it already exists", archive_path)
+                continue
+
             # find the next materialized zoom
             idx = bisect_right(materialize_zooms, materialized_tile.z)
             if idx != len(materialize_zooms):
@@ -368,11 +408,4 @@ if __name__ == "__main__":
                 tiles, materialized_tile, max_zoom, meta.copy(), ext
             )
 
-            key = "{}/{}/{}".format(
-                materialized_tile.z, materialized_tile.x, materialized_tile.y
-            )
-            if args.hash:
-                h = hashlib.md5(key.encode("utf-8")).hexdigest()[:5]
-                key = "{}/{}".format(h, key)
-
-            write(archive, path.join(args.target, "{}.zip".format(key)))
+            write(archive, archive_path)

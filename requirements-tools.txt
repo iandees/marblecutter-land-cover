@@ -1,3 +1,4 @@
 -r requirements.txt
 
+tenacity
 git+git://github.com/karlb/pysqlite3

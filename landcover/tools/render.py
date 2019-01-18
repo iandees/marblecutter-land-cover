@@ -20,7 +20,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 import boto3
 import botocore
 import mercantile
-from marblecutter import get_resolution_in_meters, tiling, NoDataAvailable
+from marblecutter import get_resolution_in_meters, tiling, DataReadFailed
 from marblecutter.catalogs import WGS84_CRS
 from marblecutter.catalogs.postgis import PostGISCatalog
 from marblecutter.formats.geotiff import GeoTIFF
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         formats = {"json": "application/json"}
         transformation = Transformation(collar=args.buffer * scale)
 
-    @retry(retry=retry_if_exception_type(NoDataAvailable), stop=stop_after_attempt(6))
+    @retry(retry=retry_if_exception_type(DataReadFailed), stop=stop_after_attempt(6))
     def render(tile_with_sources):
         tile, sources = tile_with_sources
 

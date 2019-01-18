@@ -20,7 +20,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 import boto3
 import botocore
 import mercantile
-from marblecutter import get_resolution_in_meters, tiling, DataReadFailed
+from marblecutter import get_resolution_in_meters, tiling, DataReadFailed, NoDataAvailable
 from marblecutter.catalogs import WGS84_CRS
 from marblecutter.catalogs.postgis import PostGISCatalog
 from marblecutter.formats.geotiff import GeoTIFF
@@ -125,6 +125,10 @@ def create_archive(tiles, root, max_zoom, meta, ext):
         archive.comment = json.dumps(meta).encode("utf-8")
 
         for tile, (_, data) in tiles:
+            if data is None:
+                logger.warn("Not writing tile %d/%d/%d because it has no data", tile.z, tile.x, tile.y)
+                continue
+
             logger.debug("Writing tile %d/%d/%d", tile.z, tile.x, tile.y)
 
             info = ZipInfo(
@@ -308,10 +312,20 @@ if __name__ == "__main__":
     def render(tile_with_sources):
         tile, sources = tile_with_sources
 
-        with Timer() as t:
-            headers, data = tiling.render_tile_from_sources(
-                tile, sources, format=format, transformation=transformation, scale=scale
+        try:
+            with Timer() as t:
+                headers, data = tiling.render_tile_from_sources(
+                    tile, sources, format=format, transformation=transformation, scale=scale
+                )
+        except NoDataAvailable as e:
+            logger.warn("(%d/%d/%d) Took %.03fs to not find data, %s",
+                tile.z,
+                tile.x,
+                tile.y,
+                t.elapsed,
+                e,
             )
+            return (tile, ({}, None))
 
         logger.debug(
             "(%d/%d/%d) Took %.03fs to render tile (%s bytes), %s",

@@ -166,7 +166,7 @@ def write(body, target):
                 Body=body, Bucket=bucket, Key=key, ContentType="application/zip"
             )
         except botocore.exceptions.ClientError as e:
-            logger.exception(e)
+            logger.exception("Couldn't PutObject to s3://%s/%s", bucket, key)
 
 
 def exists(target):
@@ -188,7 +188,7 @@ def exists(target):
             if e.response['Error']['Code'] == "404":
                 return False
             else:
-                logger.exception(e)
+                logger.exception("Couldn't HeadObject on s3://%s/%s", bucket, key)
 
         return True
 

@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import multiprocessing
+import sys
 from bisect import bisect_right
 from concurrent import futures
 from io import BytesIO
@@ -277,7 +278,7 @@ if __name__ == "__main__":
         logger.error(
             "Outputting meta.json with more than one target is not supported yet."
         )
-        return
+        sys.exit(1)
 
     root = Tile(args.x, args.y, args.zoom)
     concurrency = args.concurrency
@@ -390,6 +391,14 @@ if __name__ == "__main__":
         for materialized_tile in subpyramids(
             root, args.max_zoom, metatile, materialize_zooms
         ):
+            if materialized_tile.z < root.z:
+                logger.info(
+                    "Skipping materialized zoom %d because it's lower than root tile zoom %d",
+                    materialized_tile.z,
+                    root.z,
+                )
+                continue
+
             key = "{}/{}/{}.zip".format(
                 materialized_tile.z, materialized_tile.x, materialized_tile.y
             )

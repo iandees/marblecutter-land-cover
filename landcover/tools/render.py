@@ -418,7 +418,12 @@ if __name__ == "__main__":
                     archives_to_build.append(archive_path)
 
             if not archives_to_build:
-                logger.info("Skipping %d/%d/%d because it already exists")
+                logger.info(
+                    "Skipping materialized archive %d/%d/%d because it already exists",
+                    materialized_tile.z,
+                    materialized_tile.x,
+                    materialized_tile.y,
+                )
                 continue
 
             # find the next materialized zoom
@@ -452,3 +457,7 @@ if __name__ == "__main__":
 
             for target in archives_to_build:
                 write(archive, target)
+                logger.info(
+                    "Wrote archive to %s.",
+                    target,
+                )

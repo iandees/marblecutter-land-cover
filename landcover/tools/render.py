@@ -287,8 +287,6 @@ if __name__ == "__main__":
     metatile = args.metatile
     materialize_zooms = args.materialize or []
     scale = args.scale
-    if args.zoom not in materialize_zooms:
-        materialize_zooms = [args.zoom] + materialize_zooms
 
     materialize_zooms = list(filter(lambda z: z <= max_zoom, materialize_zooms))
 

@@ -261,13 +261,23 @@ if __name__ == "__main__":
         help='Buffer size in "pixels" (for GeoJSON output)',
     )
     parser.add_argument(
-        "target", default="file://./", nargs="?", help="Target path/URI for archives"
+        "--build-name",
+        help="Identifying text that goes after the hash but before the archive key. Not included in hash material",
+    )
+    parser.add_argument(
+        "targets", default=["file://./"], nargs="+", help="Target path/URI(s) for archives"
     )
 
     args = parser.parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    if len(args.targets) > 1 and not args.skip_meta:
+        logger.error(
+            "Outputting meta.json with more than one target is not supported yet."
+        )
+        return
 
     root = Tile(args.x, args.y, args.zoom)
     concurrency = args.concurrency
@@ -366,31 +376,40 @@ if __name__ == "__main__":
         meta["metatile"] = metatile
 
     if not args.skip_meta:
-        source = path.join(args.target, "{z}", "{x}", "{y}.zip")
+        source = path.join(args.targets[0], "{z}", "{x}", "{y}.zip")
         if args.hash:
-            source = path.join(args.target, "{h}", "{z}", "{x}", "{y}.zip")
+            source = path.join(args.targets[0], "{h}", "{z}", "{x}", "{y}.zip")
 
         root_meta = meta.copy()
         root_meta["materializedZooms"] = materialize_zooms
         root_meta["source"] = source
 
-        write(json.dumps(root_meta), path.join(args.target, "meta.json"))
+        write(json.dumps(root_meta), path.join(args.targets[0], "meta.json"))
 
     with futures.ProcessPoolExecutor(max_workers=concurrency) as executor:
         for materialized_tile in subpyramids(
             root, args.max_zoom, metatile, materialize_zooms
         ):
-            key = "{}/{}/{}".format(
+            key = "{}/{}/{}.zip".format(
                 materialized_tile.z, materialized_tile.x, materialized_tile.y
             )
             if args.hash:
                 h = hashlib.md5(key.encode("utf-8")).hexdigest()[:5]
-                key = "{}/{}".format(h, key)
+                if args.build_name:
+                    key = "{}/{}/{}".format(h, args.build_name, key)
+                else:
+                    key = "{}/{}".format(h, key)
 
-            archive_path = path.join(args.target, "{}.zip".format(key))
+            archives_to_build = []
+            for target in args.targets:
+                archive_path = path.join(target, key)
+                if args.dont_overwrite and exists(archive_path):
+                    continue
+                else:
+                    archives_to_build.append(archive_path)
 
-            if args.dont_overwrite and exists(archive_path):
-                logger.info("Skipping %s because it already exists", archive_path)
+            if not archives_to_build:
+                logger.info("Skipping %d/%d/%d because it already exists")
                 continue
 
             # find the next materialized zoom
@@ -422,4 +441,5 @@ if __name__ == "__main__":
                 tiles, materialized_tile, max_zoom, meta.copy(), ext
             )
 
-            write(archive, archive_path)
+            for target in archives_to_build:
+                write(archive, target)

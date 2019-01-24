@@ -389,14 +389,6 @@ if __name__ == "__main__":
         for materialized_tile in subpyramids(
             root, args.max_zoom, metatile, materialize_zooms
         ):
-            if materialized_tile.z < root.z:
-                logger.info(
-                    "Skipping materialized zoom %d because it's lower than root tile zoom %d",
-                    materialized_tile.z,
-                    root.z,
-                )
-                continue
-
             key = "{}/{}/{}.zip".format(
                 materialized_tile.z, materialized_tile.x, materialized_tile.y
             )
